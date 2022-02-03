@@ -17,29 +17,36 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def getInfo(resp,row,domain,domainlist,domain_reader):
+    #Get current site info
     current_size = last_size = current_status = last_status = ""
     current_size = int(len(resp.content))
-    last_size = int(getattr(row,'size'))
-
     current_status = resp.status_code
-    last_status = getattr(row,'status') #row['status']
 
-    #If the difference between the two sizes is greater than 100 bytes and the current size is greater than 100 bytes then report it
-    if (current_size != last_size) and (abs(current_size - last_size) > 100) and (current_size > 100):
+    #Get site info from csv file
+    last_size = int(getattr(row,'size'))
+    last_status = getattr(row,'status')
+    last_desc = getattr(row,'desc')
+
+    #If the difference between the two sizes is greater than 100 bytes and the current size is greater than 1000 bytes then report it
+    if (current_size != last_size) and (abs(current_size - last_size) > 100) and (current_size > 1000):
         print (domain + " * Changed size to " + str(current_size) + ".  Was " + str(last_size) + "\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'size']=current_size
         df.to_csv(domainlist, index=False)
-    #else:
-    #    print ("         * Size hasn't changed for " + domain)
-    #Status of 429 is related to too many requests.
+
+    #Look for parked page key words in the content
+    if (("park" in resp.content) and last_desc != "parked"):
+        print (domain + " * Contains the word 'park' in the content.  Potentially parked.\n")
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'desc']="parked"
+        df.to_csv(domainlist, index=False)
+
+    #A status of 429 means that you have issued too many requests to the site.
     if (int(current_status) != int(last_status)) and (int(current_status != 429)):
         print (domain + " * Changed status to " + str(current_status) + ". Was " + str(last_status) + "\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'status']=current_status
         df.to_csv(domainlist, index=False)
-    #else:
-    #    print ("         * Status hasn't changed for " + domain)
 
 def main():
     if len(sys.argv)<2:
@@ -51,6 +58,7 @@ def main():
     domainlist=sys.argv[1]
     #Read input file
     domain_reader = pd.read_csv(domainlist,index_col=0)
+#    whitelist = pd.read_csv("whitelist.txt",index_col=0)
     #Iterate through domains
     for index,row in enumerate(domain_reader.itertuples()):
         domain = getattr(row, 'Index')
@@ -70,6 +78,7 @@ def main():
                 df = pd.read_csv(domainlist)
                 df.loc[domain_reader.index.get_loc(domain),'size']=0
                 df.loc[domain_reader.index.get_loc(domain),'status']=0
+				df.loc[domain_reader.index.get_loc(domain),'desc']="dead"
                 df.to_csv(domainlist, index=False)
             else:
                 getInfo(resp,row,domain,domainlist,domain_reader)
@@ -78,3 +87,6 @@ def main():
             getInfo(resp,row,domain,domainlist,domain_reader)
 
 main()
+
+#Get the top 10 domains by size
+#awk -F',' '{print $1, $2}' domains.txt | sort -nk2 | tail
