@@ -33,12 +33,20 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'size']=current_size
         df.to_csv(domainlist, index=False)
+    #The corporate default splash page is 175600 bytes.
+    if (current_size == 175600):
+        print (domain + " * Same byte size as the corporate splash page.\n")
 
     #Look for parked page key words in the content
-    if (("park" in resp.content) and last_desc != "parked"):
+    if (("park" in str(resp.content)) and str(last_desc) != "parked"):
         print (domain + " * Contains the word 'park' in the content.  Potentially parked.\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'desc']="parked"
+        df.to_csv(domainlist, index=False)
+    elif (("sale" in str(resp.content)) and str(last_desc) != "forsale"):
+        print (domain + " * Contains the word 'sale' in the content.  Potentially for sale.\n")
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'desc']="forsale"
         df.to_csv(domainlist, index=False)
 
     #A status of 429 means that you have issued too many requests to the site.
@@ -47,6 +55,12 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'status']=current_status
         df.to_csv(domainlist, index=False)
+
+    #If the description is blank, then it is most likely a live site.
+    if (str(last_desc) == ""):
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'desc']="live"
+        df.to_csv(domainlist,index=False)
 
 def main():
     if len(sys.argv)<2:
@@ -78,7 +92,7 @@ def main():
                 df = pd.read_csv(domainlist)
                 df.loc[domain_reader.index.get_loc(domain),'size']=0
                 df.loc[domain_reader.index.get_loc(domain),'status']=0
-				df.loc[domain_reader.index.get_loc(domain),'desc']="dead"
+                df.loc[domain_reader.index.get_loc(domain),'desc']="dead"
                 df.to_csv(domainlist, index=False)
             else:
                 getInfo(resp,row,domain,domainlist,domain_reader)
