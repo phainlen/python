@@ -28,8 +28,14 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
     last_desc = getattr(row,'desc')
 
     #If the difference between the two sizes is greater than 100 bytes and the current size is greater than 1000 bytes then report it
+    #If the percentage difference is greater than 5% then print out the results to the screen otherwise there were nominal changes to the site that don't require a manual look
     if (current_size != last_size) and (abs(current_size - last_size) > 100) and (current_size > 1000):
-        print (domain + " * Changed size to " + str(current_size) + ".  Was " + str(last_size) + "\n")
+        pct_diff = 0
+        if (current_size > 0):
+            pct_diff = last_size / current_size
+        if ((pct_diff <= .95) or (pct_diff >= 1.05)):
+            print (domain + " * Changed size to " + str(current_size) + ".  Was " + str(last_size) + "\n")
+        #regardless of the percentage difference, we still want to record the size
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'size']=current_size
         df.to_csv(domainlist, index=False)
@@ -103,4 +109,4 @@ def main():
 main()
 
 #Get the top 10 domains by size
-#awk -F',' '{print $1, $2}' domains.txt | sort -nk2 | tail
+#cat domains.txt | grep -v "forsale" | grep -v "parked" | awk -F',' '{print $1, $2}' | sort -nk2 | tail -n 20
