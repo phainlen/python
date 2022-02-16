@@ -39,6 +39,11 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'size']=current_size
         df.to_csv(domainlist, index=False)
+    #record the current size, just don't alert on the size change
+    elif (current_size < 1000) or (abs(current_size - last_size < 100)):
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'size']=current_size
+        df.to_csv(domainlist, index=False)
     #The corporate default splash page is 175600 bytes.
     if (current_size == 175600):
         print (domain + " * Same byte size as the corporate splash page.\n")
@@ -72,13 +77,13 @@ def main():
     if len(sys.argv)<2:
         print ('''Help: Usage:SiteChecker.py domain_list.txt''')
         print ('''Domain list should be in the format of:''')
-        print ('''   domain,size,status''')
+        print ('''   domain,size,status,desc''')
         print ('''*NOTE* All new domains in the list get a size and status of 0''')
+        print ('''*      Example new row in text file: newdomain.com,0,0,''')
         sys.exit(0)
     domainlist=sys.argv[1]
     #Read input file
     domain_reader = pd.read_csv(domainlist,index_col=0)
-#    whitelist = pd.read_csv("whitelist.txt",index_col=0)
     #Iterate through domains
     for index,row in enumerate(domain_reader.itertuples()):
         domain = getattr(row, 'Index')
