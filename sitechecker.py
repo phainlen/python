@@ -18,7 +18,7 @@ requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
 def getInfo(resp,row,domain,domainlist,domain_reader):
     #Get current site info
-    current_size = last_size = current_status = last_status = ""
+    current_size = last_size = current_status = last_status = last_note = ""
     current_size = int(len(resp.content))
     current_status = resp.status_code
 
@@ -26,6 +26,7 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
     last_size = int(getattr(row,'size'))
     last_status = getattr(row,'status')
     last_desc = getattr(row,'desc')
+    last_note = getattr(row,'note')
 
     #If the difference between the two sizes is greater than 100 bytes and the current size is greater than 1000 bytes then report it
     #If the percentage difference is greater than 5% then print out the results to the screen otherwise there were nominal changes to the site that don't require a manual look
@@ -50,19 +51,48 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
 
     #Look for parked page key words in the content
     if (("park" in str(resp.content)) and str(last_desc) != "parked"):
-        print (domain + " * Contains the word 'park' in the content.  Potentially parked.\n")
+        #print (domain + " * Contains the word 'park' in the content.  Potentially parked.\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'desc']="parked"
         df.to_csv(domainlist, index=False)
-    elif (("sale" in str(resp.content)) and str(last_desc) != "forsale"):
-        print (domain + " * Contains the word 'sale' in the content.  Potentially for sale.\n")
+    elif (("park" not in str(resp.content)) and str(last_desc) == "parked"):
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'desc']=""
+        df.to_csv(domainlist, index=False)
+
+    #Look for for sale key words in the content
+    if (("sale" in str(resp.content)) and str(last_desc) != "forsale"):
+        #print (domain + " * Contains the word 'sale' in the content.  Potentially for sale.\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'desc']="forsale"
+        df.to_csv(domainlist, index=False)
+    elif (("sale" not in str(resp.content)) and str(last_desc) == "sale"):
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'desc']=""
+        df.to_csv(domainlist, index=False)
+
+    #Look for logon key words in the content
+    if (((">log" in str(resp.content)) or
+         (">user" in str(resp.content)) or
+         (">pass" in str(resp.content))) and
+        (("<form" in str(resp.content)) and
+         ("post" in str(resp.content)) and
+         ("submit" in str(resp.content)))):
+        print (domain + " * Contains the word 'login' in the content.\n")
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'note']="logon"
+        df.to_csv(domainlist, index=False)
+    elif ((">log" not in str(resp.content)) and
+           (">user" not in str(resp.content)) and
+           (">pass" not in str(resp.content)) and
+           (str(last_note) == "logon")):
+        df = pd.read_csv(domainlist)
+        df.loc[domain_reader.index.get_loc(domain),'note']=""
         df.to_csv(domainlist, index=False)
 
     #A status of 429 means that you have issued too many requests to the site.
     if (int(current_status) != int(last_status)) and (int(current_status != 429)):
-        print (domain + " * Changed status to " + str(current_status) + ". Was " + str(last_status) + "\n")
+        #print (domain + " * Changed status to " + str(current_status) + ". Was " + str(last_status) + "\n")
         df = pd.read_csv(domainlist)
         df.loc[domain_reader.index.get_loc(domain),'status']=current_status
         df.to_csv(domainlist, index=False)
@@ -77,7 +107,7 @@ def main():
     if len(sys.argv)<2:
         print ('''Help: Usage:SiteChecker.py domain_list.txt''')
         print ('''Domain list should be in the format of:''')
-        print ('''   domain,size,status,desc''')
+        print ('''   domain,size,status,desc,note''')
         print ('''*NOTE* All new domains in the list get a size and status of 0''')
         print ('''*      Example new row in text file: newdomain.com,0,0,''')
         sys.exit(0)
