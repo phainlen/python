@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 print ('''
-  ______    _   _             ______  __                    __
-.' ____ \  (_) / |_         .' ___  |[  |                  [  |  _
-| (___ \_| __ `| |-'.---.  / .'   \_| | |--.  .---.  .---.  | | / ] .---.  _ .--.
- _.____`. [  | | | / /__\\ | |        | .-. |/ /__\\/ /'`\] | '' < / /__\\[ `/'`\]
-| \____) | | | | |,| \__., \ `.___.'\ | | | || \__.,| \__.  | |`\ \| \__., | |
- \______.'[___]\__/ '.__.'  `.____ .'[___]|__]'.__.''.___.'[__|  \_]'.__.'[___]
+
+ .----..-. .---. .----.    .---. .-. .-..----..---. .-. .-..----..----.
+{ {__  | |{_   _}| {_     /  ___}| {_} || {_ /  ___}| |/ / | {_  | {}  }
+.-._} }| |  | |  | {__    \     }| { } || {__\     }| |\ \ | {__ | .-. \
+`----' `-'  `-'  `----'    `---' `-' `-'`----'`---' `-' `-'`----'`-' `-'
+
 ''')
 
 import requests,urllib,sys,csv
@@ -16,12 +16,14 @@ import pandas as pd
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning)
 
-def getInfo(resp,row,domain,domainlist,domain_reader):
+def getInfo(resp,opt,row,domain,domainlist,domain_reader):
     #Get current site info
     current_size = last_size = current_status = last_status = last_note = ""
     current_size = int(len(resp.content))
     current_status = resp.status_code
     current_content = str(resp.content).casefold()
+    current_url = str(resp.url)
+    current_options = str(opt.text).casefold()
 
     #Get site info from csv file
     last_size = int(getattr(row,'size'))
@@ -38,12 +40,15 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
 
         #<-- DESCRIPTION -->
         #Look for parked page key words in the content
-        if ((("park" in current_content) or ("godaddy-branded" in current_content)) and str(last_desc) != "parked"):
+        #if ((("park" in current_content) or ("godaddy-branded" in current_content) or ("www.hugedomains.com" in current_url) or ("parkingcrew.net" in current_content) or ("parking.bodiscdn.com" in current_content)) and str(last_desc) !>
+        if ((("park" in current_options) or ("park" in current_content) or ("godaddy-branded" in current_options) or ("www.hugedomains.com" in current_url) or ("parkingcrew.net" in current_options) or ("parking.bodiscdn.com" in current_>
             #print (domain + " * Contains the word 'park' in the content.  Potentially parked.\n")
             df = pd.read_csv(domainlist)
             df.loc[domain_reader.index.get_loc(domain),'desc']="parked"
             df.to_csv(domainlist, index=False)
-        elif (("park" not in current_content) and ("godaddy-branded" not in current_content)  and str(last_desc) == "parked"):
+        #elif (("park" not in current_content) and ("godaddy-branded" not in current_content) and ("www.hugedomains.com" not in current_url) and ("parkingcrew.net" not in current_content) and ("parking.bodiscdn.com" not in current_conte>
+        elif (("park" not in current_options) and ("park" not in current_content) and ("godaddy-branded" not in current_options) and ("www.hugedomains.com" not in current_url) and ("parkingcrew.net" not in current_options) and ("parking>
+            print (domain + " * was parked.\n")
             df = pd.read_csv(domainlist)
             df.loc[domain_reader.index.get_loc(domain),'desc']=""
             df.to_csv(domainlist, index=False)
@@ -59,6 +64,7 @@ def getInfo(resp,row,domain,domainlist,domain_reader):
             df.to_csv(domainlist, index=False)
         #If the description is blank, then it is most likely a live site.
         else:
+            print (domain + " * Potentially live.\n")
             df = pd.read_csv(domainlist)
             df.loc[domain_reader.index.get_loc(domain),'desc']="live"
             df.to_csv(domainlist,index=False)
@@ -117,7 +123,7 @@ def main():
         print ('''Domain list should be in the format of:''')
         print ('''   domain,size,status,desc,note''')
         print ('''*NOTE* All new domains in the list get a size and status of 0''')
-        print ('''*      Example new row in text file: newdomain.com,0,0,,,''')
+        print ('''*      Example new row in text file: newdomain.com,0,0,,''')
         sys.exit(0)
     domainlist=sys.argv[1]
     #Read input file
@@ -129,11 +135,15 @@ def main():
         try:
             resp = ""
             resp = requests.get('http://' + domain,timeout=1,verify=False)
+            opt = ""
+            opt = requests.options('http://' + domain,timeout=1,verify=False)
         except requests.exceptions.RequestException as e:
             #print("         * " + domain + ": Connection Error for http.")
             try:
                 resp = ""
                 resp = requests.get('https://' + domain,timeout=1,verify=False)
+                opt = ""
+                opt = requests.options('https://' + domain,timeout=1,verify=False)
             except: # requests.exceptions.RequestException as e:
                 #print("         * " + domain + ": Connection Error for https.")
                 #If not successful getting http or https, then the site has no content (0)
@@ -144,10 +154,10 @@ def main():
                 df.loc[domain_reader.index.get_loc(domain),'desc']="dead"
                 df.to_csv(domainlist, index=False)
             else:
-                getInfo(resp,row,domain,domainlist,domain_reader)
+                getInfo(resp,opt,row,domain,domainlist,domain_reader)
 
         else:
-            getInfo(resp,row,domain,domainlist,domain_reader)
+            getInfo(resp,opt,row,domain,domainlist,domain_reader)
 
 main()
 
